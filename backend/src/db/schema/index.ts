@@ -65,25 +65,21 @@ export const swaps = pgTable("swaps", {
 });
 
 // ✅ Endorsements table
-export const endorsements = pgTable(
-  "endorsements",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    skillId: uuid("skill_id")
-      .notNull()
-      .references(() => skills.id, { onDelete: "cascade" }),
-    endorsedUserId: uuid("endorsed_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    endorserUserId: uuid("endorser_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").defaultNow(),
-  },
-  (table) => ({
-    uniqueEndorsement: unique().on(table.skillId, table.endorserUserId),
-  }),
-);
+
+export const endorsements = pgTable("endorsements", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  endorserId: uuid("endorser_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  endorsedUserId: uuid("endorsed_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  skillId: uuid("skill_id")
+    .notNull()
+    .references(() => skills.id, { onDelete: "cascade" }),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 // ✅ Ratings table
 export const ratings = pgTable("ratings", {

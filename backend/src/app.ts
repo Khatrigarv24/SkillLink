@@ -7,6 +7,7 @@ import userRoutes from "./routes/userRoutes";
 import skillRoutes from "./routes/skillRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import swapRoutes from "./routes/swapRoutes";
+import endorsementRoutes from "./routes/endorsementRoutes";
 dotenv.config();
 
 const app: Application = express();
@@ -20,6 +21,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/skills", skillRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/swap", swapRoutes);
+app.use("/api/endorsements", endorsementRoutes);
 
 app.get("/", (req, res) => {
   res.send("SkillLink API is running 🚀");
