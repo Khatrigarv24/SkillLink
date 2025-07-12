@@ -11,12 +11,3 @@ const pool = new Pool({
 export const db = drizzle(pool, { schema });
 
 export type DB = typeof db;
-
-(async () => {
-  try {
-    await pool.connect();
-    console.log("✅ Connected to PostgreSQL database successfully!");
-  } catch (err) {
-    console.error("❌ Database connection error:", err);
-  }
-})();
