@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { db } from "../db/db";
 import { skills } from "../db/schema/index";
 import { eq } from "drizzle-orm";
+import { asyncWrapProviders } from "async_hooks";
+import { ref } from "process";
 
 // ✅ Create Skill
 export const createSkill = async (req: Request, res: Response) => {
@@ -76,6 +78,26 @@ export const deleteSkill = async (req: Request, res: Response) => {
     res.json({ message: "Skill deleted successfully" });
   } catch (err) {
     console.error("Delete skill error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getUserSkill = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const userSkills = await db
+      .select()
+      .from(skills)
+      .where(eq(skills.userId, userId));
+
+    res.json(userSkills);
+  } catch (err) {
+    console.error("Get skills error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
