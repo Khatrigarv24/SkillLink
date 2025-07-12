@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createSwap,
+  deleteSwap,
   getAllSwaps,
   getSwaps,
   updateSwapStatus,
@@ -14,5 +15,6 @@ router.post("/", authenticate, createSwap);
 router.get("/", authenticate, getSwaps);
 router.put("/:id/status", authenticate, updateSwapStatus);
 router.get("/all", authenticate, isAdmin, getAllSwaps);
+router.delete("/:id", authenticate, isAdmin, deleteSwap);
 
 export default router;

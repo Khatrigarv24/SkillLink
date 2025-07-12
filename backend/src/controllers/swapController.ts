@@ -96,3 +96,16 @@ export const getAllSwaps = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const deleteSwap = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    await db.delete(swaps).where(eq(swaps.id, id));
+
+    res.json({ message: "Swap deleted successfully" });
+  } catch (err) {
+    console.error("Delete swap error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
