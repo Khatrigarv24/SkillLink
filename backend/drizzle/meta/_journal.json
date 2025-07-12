@@ -22,6 +22,13 @@
       "when": 1752305724820,
       "tag": "0002_fuzzy_newton_destine",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1752306388997,
+      "tag": "0003_giant_squirrel_girl",
+      "breakpoints": true
     }
   ]
 }

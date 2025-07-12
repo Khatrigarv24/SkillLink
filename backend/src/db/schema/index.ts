@@ -93,8 +93,8 @@ export const ratings = pgTable("ratings", {
   ratedUserId: uuid("rated_user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  rating: integer("rating").notNull(),
-  feedback: text("feedback"),
+  rating: integer("rating").notNull(), // e.g. 1-5 stars
+  comment: text("comment"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -1,0 +1,1 @@
+ALTER TABLE "ratings" RENAME COLUMN "feedback" TO "comment";
