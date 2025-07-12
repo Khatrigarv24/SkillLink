@@ -5,6 +5,7 @@ import {
   updateSkill,
   deleteSkill,
   getUserSkill,
+  getUsersBySkill,
 } from "../controllers/skillController";
 import { authenticate } from "../middlewares/authMiddleware";
 
@@ -15,5 +16,6 @@ router.get("/", getSkills);
 router.put("/:id", authenticate, updateSkill);
 router.delete("/:id", authenticate, deleteSkill);
 router.get("/me", authenticate, getUserSkill);
+router.get("/:skillId/users", authenticate, getUsersBySkill);
 
 export default router;

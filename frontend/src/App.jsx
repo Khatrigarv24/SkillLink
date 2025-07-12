@@ -16,6 +16,7 @@ import Profile from './pages/Profile';
 import Skills from './pages/Skills';
 import Swaps from './pages/Swaps';
 import Matches from './pages/Matches';
+import SkillDetails from './pages/SkillDetails';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -53,6 +54,7 @@ function App() {
             <Route path="/skills" element={<Skills />} />
             <Route path="/swaps" element={<Swaps />} />
             <Route path="/matches" element={<Matches />} />
+            <Route path="/skills/:skillId" element={<SkillDetails />} />
           </Route>
         </Routes>
       </Router>

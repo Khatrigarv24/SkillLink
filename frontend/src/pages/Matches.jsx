@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { matchService, swapService, skillService, userService } from '../services/api';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const Matches = () => {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [skills, setSkills] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedMatch, setSelectedMatch] = useState(null);
@@ -22,34 +24,30 @@ const Matches = () => {
         setLoading(true);
         
         // Get skill matches for the current user
-        const matchesResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/matches`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        const matchesResponse = await matchService.getMatches();
+        console.log('Matches data:', matchesResponse.data);
         
         // Get all skills for reference
-        const skillsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/skills`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        const skillsResponse = await skillService.getSkills();
         
         // Get users for displaying names
-        const usersResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/users`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }).catch(() => ({ data: [] })); // Fallback if endpoint doesn't exist
+        const usersResponse = await userService.getUsers().catch(() => ({ data: [] }));
         
-        setMatches(matchesResponse.data.matches || []);
-        setSkills(skillsResponse.data);
-        setUsers(usersResponse.data || []);
+        // Ensure matches data is properly formatted
+        const matchesData = matchesResponse.data.matches || [];
+        setMatches(Array.isArray(matchesData) ? matchesData : []);
+        setSkills(Array.isArray(skillsResponse.data) ? skillsResponse.data : []);
+        setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : []);
+        
         setLoading(false);
       } catch (err) {
+        console.error('Error fetching match data:', err);
         setError('Failed to load matches. Please try again later.');
         setLoading(false);
-        console.error('Error fetching match data:', err);
+        // Initialize with empty arrays
+        setMatches([]);
+        setSkills([]);
+        setUsers([]);
       }
     };
     
@@ -92,31 +90,26 @@ const Matches = () => {
     e.preventDefault();
     
     try {
-      if (!newSwap.offeredSkillId || !newSwap.wantedSkillId) {
-        setError('Could not find the necessary skill IDs. Please try again.');
+      console.log('Creating swap with data:', newSwap);
+      
+      if (!newSwap.receiverId || !newSwap.offeredSkillId || !newSwap.wantedSkillId) {
+        setError('All fields are required for the swap');
         return;
       }
       
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/swap`, 
-        newSwap,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await swapService.createSwap(newSwap);
+      console.log('Swap created:', response.data);
       
       // Reset form and show success
       setSelectedMatch(null);
       setError(null);
-      // You could add a success message state here
+      setSuccess('Swap request created successfully!');
       
-      // Navigate to swaps page - optional, requires useNavigate hook
-      // navigate('/swaps');
+      // Hide success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError('Failed to create swap request. Please try again.');
       console.error('Error creating swap:', err);
+      setError(err.response?.data?.message || 'Failed to create swap request. Please try again.');
     }
   };
 
@@ -131,6 +124,12 @@ const Matches = () => {
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          {success}
         </div>
       )}
       

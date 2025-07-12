@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../services/api';
 import { toast } from 'react-hot-toast';
 
@@ -8,35 +8,63 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Check for token and load user on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      fetchUserProfile();
-    } else {
+    const loadUserFromToken = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          // Get user profile using token
+          const response = await authService.getProfile();
+          
+          // Create user object with token
+          const userData = {
+            ...response.data,
+            token
+          };
+          
+          // Store user ID in localStorage if not already there
+          if (userData.id) {
+            localStorage.setItem('userId', userData.id);
+          }
+          
+          setUser(userData);
+        } catch (error) {
+          console.error('Failed to load user from token:', error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('userId');
+        }
+      }
       setLoading(false);
-    }
-  }, []);
+    };
 
-  const fetchUserProfile = async () => {
-    try {
-      const response = await authService.getProfile();
-      setUser(response.data);
-    } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-      logout();
-    } finally {
-      setLoading(false);
-    }
-  };
+    loadUserFromToken();
+  }, []);
 
   const login = async (email, password) => {
     try {
       const response = await authService.login({ email, password });
-      localStorage.setItem('token', response.data.token);
-      setUser(response.data.user);
-      return response.data;
+      
+      const userData = response.data;
+      localStorage.setItem('token', userData.token);
+      
+      // Make sure we're getting the correct property name for the user ID
+      // and handle both formats (id or userId)
+      if (userData.id) {
+        localStorage.setItem('userId', userData.id);
+        console.log('Stored userId in localStorage:', userData.id);
+      } else if (userData.userId) {
+        localStorage.setItem('userId', userData.userId);
+        console.log('Stored userId in localStorage:', userData.userId);
+      } else if (userData.user && userData.user.id) {
+        localStorage.setItem('userId', userData.user.id);
+        console.log('Stored userId from user object:', userData.user.id);
+      }
+      
+      setUser(userData);
+      return userData;
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      console.error('Login error:', error);
       throw error;
     }
   };
@@ -45,7 +73,15 @@ export function AuthProvider({ children }) {
     try {
       const response = await authService.signup(userData);
       localStorage.setItem('token', response.data.token);
-      setUser(response.data.user);
+      
+      // Also store userId
+      const user = response.data.user || response.data;
+      if (user.id) {
+        localStorage.setItem('userId', user.id);
+        console.log('Stored userId in localStorage during signup:', user.id);
+      }
+      
+      setUser(response.data.user || response.data);
       return response.data;
     } catch (error) {
       toast.error(error.response?.data?.message || 'Signup failed');
@@ -55,6 +91,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userId');
     setUser(null);
   };
 

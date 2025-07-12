@@ -1,14 +1,28 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
 import app from "./app";
+import cors from "cors";
 import { db } from "./db/db";
 import { swaps } from "./db/schema/index";
 import { eq } from "drizzle-orm";
 
+// ✅ Configure CORS middleware for Express
+app.use(
+  cors({
+    origin: "http://localhost:5173", // your frontend URL
+    credentials: true,
+  }),
+);
+
+// ✅ Create HTTP server
 const httpServer = createServer(app);
+
+// ✅ Initialize Socket.io with CORS
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // Adjust in production
+    origin: "http://localhost:5173", // your frontend URL
+    methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 

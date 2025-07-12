@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import { authService, skillService } from '../services/api';
+import toast from 'react-hot-toast';
 
 const Profile = () => {
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [userProfile, setUserProfile] = useState({
     name: '',
     email: '',
@@ -16,26 +14,32 @@ const Profile = () => {
   });
   const [skills, setSkills] = useState([]);
   const [ratings, setRatings] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Fetch profile data whenever component mounts or user changes
   useEffect(() => {
     const fetchProfileData = async () => {
       setIsLoading(true);
       try {
-        // Fetch user profile
-        const profileResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/me`, {
-          headers: { Authorization: `Bearer ${user.token}` }
-        });
-
-        // Fetch user's skills
-        const skillsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/skills/me`, {
-          headers: { Authorization: `Bearer ${user.token}` }
-        });
+        // Check if we have a token first
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.warn('No token found in localStorage');
+          setIsLoading(false);
+          return;
+        }
         
-        // Fetch user's ratings
-        const ratingsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/ratings/${user.id}`, {
-          headers: { Authorization: `Bearer ${user.token}` }
-        });
+        console.log('Fetching profile data...');
         
+        // Use the services directly instead of axios
+        const profileResponse = await authService.getProfile();
+        console.log('Profile data received:', profileResponse.data);
+        
+        const skillsResponse = await skillService.getUserSkills();
+        console.log('Skills data received:', skillsResponse.data);
+        
+        // Set user profile data
         setUserProfile({
           name: profileResponse.data.name || '',
           email: profileResponse.data.email || '',
@@ -43,20 +47,36 @@ const Profile = () => {
           availability: profileResponse.data.availability || '',
           profilePhotoUrl: profileResponse.data.profilePhotoUrl || ''
         });
-        setSkills(skillsResponse.data);
-        setRatings(ratingsResponse.data);
+        
+        // Ensure skills is an array
+        setSkills(Array.isArray(skillsResponse.data) ? skillsResponse.data : []);
+        
+        // Try to fetch ratings if possible
+        try {
+          const userId = profileResponse.data.id || localStorage.getItem('userId');
+          if (userId) {
+            const ratingsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/ratings/${userId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            setRatings(Array.isArray(ratingsResponse.data) ? ratingsResponse.data : []);
+          }
+        } catch (ratingError) {
+          console.warn('Could not fetch ratings:', ratingError);
+          setRatings([]);
+        }
       } catch (error) {
         console.error('Error fetching profile data:', error);
         toast.error('Failed to load profile data');
+        // Initialize with empty arrays on error
+        setSkills([]);
+        setRatings([]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (user) {
-      fetchProfileData();
-    }
-  }, [user]);
+    fetchProfileData();
+  }, []); // Don't depend on user, as it may not be available after a refresh
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -66,23 +86,27 @@ const Profile = () => {
     });
   };
 
+  // Update the handleSubmit function with the correct endpoint
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/users/me`,
-        {
-          name: userProfile.name,
-          location: userProfile.location,
-          availability: userProfile.availability,
-          profilePhotoUrl: userProfile.profilePhotoUrl
-        },
-        {
-          headers: { Authorization: `Bearer ${user.token}` }
-        }
-      );
+      const response = await authService.updateProfile({
+        name: userProfile.name,
+        location: userProfile.location,
+        availability: userProfile.availability,
+        profilePhotoUrl: userProfile.profilePhotoUrl
+      });
+      
       toast.success('Profile updated successfully');
+      
+      // Update local state with the returned data
+      if (response.data) {
+        setUserProfile(prev => ({
+          ...prev,
+          ...response.data
+        }));
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error('Failed to update profile');
@@ -224,7 +248,7 @@ const Profile = () => {
             
             <div className="mt-4 pt-4 border-t">
               <h3 className="font-medium mb-2">Your Skills</h3>
-              {skills.length > 0 ? (
+              {Array.isArray(skills) && skills.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {skills.map((skill) => (
                     <span 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import { skillService, matchService } from '../services/api';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
 const Dashboard = () => {
@@ -8,26 +9,32 @@ const Dashboard = () => {
   const [userSkills, setUserSkills] = useState([]);
   const [matches, setMatches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
         // Fetch user's skills
-        const skillsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/skills/me`, {
-          headers: { Authorization: `Bearer ${user.token}` }
-        });
+        const skillsResponse = await skillService.getUserSkills();
         
         // Fetch skill matches
-        const matchesResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/matches`, {
-          headers: { Authorization: `Bearer ${user.token}` }
-        });
+        const matchesResponse = await matchService.getMatches();
+        console.log('Matches response:', matchesResponse.data);
         
-        setUserSkills(skillsResponse.data);
-        setMatches(matchesResponse.data);
+        // Ensure data is properly handled as arrays
+        setUserSkills(Array.isArray(skillsResponse.data) ? skillsResponse.data : []);
+        
+        // Check if matches is in the expected format
+        const matchesData = matchesResponse.data.matches || [];
+        setMatches(Array.isArray(matchesData) ? matchesData : []);
+        
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        toast.error('Failed to load dashboard data');
+        setError('Failed to load dashboard data');
+        // Initialize with empty arrays on error
+        setUserSkills([]);
+        setMatches([]);
       } finally {
         setIsLoading(false);
       }
@@ -56,32 +63,33 @@ const Dashboard = () => {
           <h2 className="text-xl font-semibold mb-4">Your Skills</h2>
           {userSkills.length > 0 ? (
             <div className="space-y-3">
-              {userSkills.slice(0, 3).map((skill) => (
-                <div key={skill.id} className="flex items-center justify-between border-b pb-2">
-                  <div>
-                    <p className="font-medium">{skill.skillName}</p>
-                    <p className="text-sm text-gray-500">{skill.type}</p>
-                  </div>
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                    {skill.type === 'offering' ? 'Offering' : 'Seeking'}
-                  </span>
-                </div>
+              {Array.isArray(userSkills) && userSkills.slice(0, 3).map((skill) => (
+                <span 
+                  key={skill.id}
+                  className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                    skill.type === 'offered' 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-purple-100 text-purple-800'
+                  }`}
+                >
+                  {skill.skillName}
+                </span>
               ))}
               {userSkills.length > 3 && (
-                <a href="/skills" className="text-blue-500 hover:underline text-sm block mt-2">
+                <Link to="/skills" className="text-blue-500 hover:underline text-sm block mt-2">
                   View all {userSkills.length} skills →
-                </a>
+                </Link>
               )}
             </div>
           ) : (
             <p className="text-gray-500">You haven't added any skills yet.</p>
           )}
-          <a 
-            href="/skills" 
+          <Link 
+            to="/skills" 
             className="mt-4 inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200"
           >
             Manage Skills
-          </a>
+          </Link>
         </div>
         
         {/* Matches Summary Card */}
@@ -103,20 +111,20 @@ const Dashboard = () => {
                 </div>
               ))}
               {matches.length > 3 && (
-                <a href="/matches" className="text-blue-500 hover:underline text-sm block mt-2">
+                <Link to="/matches" className="text-blue-500 hover:underline text-sm block mt-2">
                   View all {matches.length} matches →
-                </a>
+                </Link>
               )}
             </div>
           ) : (
             <p className="text-gray-500">No matches found yet. Add more skills to find potential matches.</p>
           )}
-          <a 
-            href="/matches" 
+          <Link 
+            to="/matches" 
             className="mt-4 inline-block px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition duration-200"
           >
             Explore Matches
-          </a>
+          </Link>
         </div>
       </div>
       
@@ -124,34 +132,34 @@ const Dashboard = () => {
       <div className="mt-8">
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <a 
-            href="/profile" 
+          <Link 
+            to="/profile" 
             className="bg-white rounded-lg shadow-md p-4 text-center hover:bg-gray-50 transition duration-200"
           >
             <div className="text-2xl mb-2">👤</div>
             <p className="font-medium">Update Profile</p>
-          </a>
-          <a 
-            href="/skills" 
+          </Link>
+          <Link 
+            to="/skills" 
             className="bg-white rounded-lg shadow-md p-4 text-center hover:bg-gray-50 transition duration-200"
           >
             <div className="text-2xl mb-2">🧠</div>
             <p className="font-medium">Add Skills</p>
-          </a>
-          <a 
-            href="/matches" 
+          </Link>
+          <Link 
+            to="/matches" 
             className="bg-white rounded-lg shadow-md p-4 text-center hover:bg-gray-50 transition duration-200"
           >
             <div className="text-2xl mb-2">🔍</div>
             <p className="font-medium">Find Matches</p>
-          </a>
-          <a 
-            href="/swaps" 
+          </Link>
+          <Link 
+            to="/swaps" 
             className="bg-white rounded-lg shadow-md p-4 text-center hover:bg-gray-50 transition duration-200"
           >
             <div className="text-2xl mb-2">🔄</div>
             <p className="font-medium">Manage Swaps</p>
-          </a>
+          </Link>
         </div>
       </div>
     </div>

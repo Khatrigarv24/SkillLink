@@ -53,3 +53,13 @@ export const updateProfile = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getAllUsers = async (req: Request, res: Response) => {
+  try {
+    const usersList = await db.select().from(users);
+    res.json(usersList);
+  } catch (err) {
+    console.error("Get users error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { skillService } from '../services/api';
+import { Link } from 'react-router-dom';
 
 const Skills = () => {
   const [skills, setSkills] = useState([]);
@@ -18,32 +19,39 @@ const Skills = () => {
       try {
         setLoading(true);
         
-        // Get all skills
-        const allSkillsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/skills`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        // Get all skills using your service
+        const allSkillsResponse = await skillService.getSkills();
         
-        // Get user's skills
-        const userSkillsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/skills/me`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        // Get user's skills using your service
+        const userSkillsResponse = await skillService.getUserSkills();
         
-        setSkills(allSkillsResponse.data);
-        setUserSkills(userSkillsResponse.data);
+        // Ensure we're always working with arrays
+        setSkills(Array.isArray(allSkillsResponse.data) ? allSkillsResponse.data : []);
+        setUserSkills(Array.isArray(userSkillsResponse.data) ? userSkillsResponse.data : []);
         setLoading(false);
       } catch (err) {
         setError('Failed to load skills. Please try again later.');
         setLoading(false);
         console.error('Error fetching skills:', err);
+        // Initialize with empty arrays on error
+        setSkills([]);
+        setUserSkills([]);
       }
     };
     
     fetchData();
   }, []);
+
+  // Add this function to your Skills component:
+  const fetchUsersBySkill = async (skillId, type) => {
+    try {
+      const response = await skillService.getUsersBySkill(skillId, type);
+      return response.data;
+    } catch (err) {
+      console.error('Error fetching users by skill:', err);
+      return [];
+    }
+  };
 
   // Handle input changes for new skill form
   const handleInputChange = (e) => {
@@ -59,15 +67,7 @@ const Skills = () => {
     e.preventDefault();
     
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/skills`, 
-        newSkill,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await skillService.createSkill(newSkill);
       
       // Add the new skill to the user's skills list
       setUserSkills([...userSkills, response.data]);
@@ -88,11 +88,7 @@ const Skills = () => {
   // Handle skill deletion
   const handleDeleteSkill = async (skillId) => {
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/skills/${skillId}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      await skillService.deleteSkill(skillId);
       
       // Remove deleted skill from list
       setUserSkills(userSkills.filter(skill => skill.id !== skillId));
@@ -181,14 +177,14 @@ const Skills = () => {
       <div className="bg-white shadow-md rounded-lg p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">My Skills</h2>
         
-        {userSkills.length === 0 ? (
+        {!userSkills || userSkills.length === 0 ? (
           <p className="text-gray-500">You haven't added any skills yet.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <h3 className="font-medium mb-2">Skills I Offer</h3>
               <ul className="space-y-2">
-                {userSkills
+                {Array.isArray(userSkills) && userSkills
                   .filter(skill => skill.type === 'offered')
                   .map(skill => (
                     <li 
@@ -215,7 +211,7 @@ const Skills = () => {
             <div>
               <h3 className="font-medium mb-2">Skills I Want to Learn</h3>
               <ul className="space-y-2">
-                {userSkills
+                {Array.isArray(userSkills) && userSkills
                   .filter(skill => skill.type === 'wanted')
                   .map(skill => (
                     <li 
@@ -265,7 +261,12 @@ const Skills = () => {
               {skills.map(skill => (
                 <tr key={skill.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {skill.skillName}
+                    <Link 
+                      to={`/skills/${skill.id}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {skill.skillName}
+                    </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${

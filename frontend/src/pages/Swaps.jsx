@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { swapService, skillService, userService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const Swaps = () => {
+  const { user } = useAuth();
   const [swaps, setSwaps] = useState([]);
   const [skills, setSkills] = useState([]);
   const [users, setUsers] = useState([]);
@@ -13,6 +15,33 @@ const Swaps = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+
+  // Get userId from localStorage or auth context
+  const getUserId = () => {
+    const storedUserId = localStorage.getItem('userId');
+    if (storedUserId) return storedUserId;
+    
+    // Fallback to auth context
+    if (user && user.id) {
+      // Store it in localStorage for future use
+      localStorage.setItem('userId', user.id);
+      return user.id;
+    }
+    
+    return null;
+  };
+
+  // Check if userId exists
+  useEffect(() => {
+    const userId = getUserId();
+    if (!userId) {
+      setError('User ID not found. Please log in again.');
+      console.warn('User ID not found in localStorage or auth context');
+    } else {
+      console.log('Using userId:', userId);
+    }
+  }, [user]);
 
   // Fetch all necessary data on component mount
   useEffect(() => {
@@ -21,42 +50,60 @@ const Swaps = () => {
         setLoading(true);
         
         // Get user's swaps
-        const swapsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/swap`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        const swapsResponse = await swapService.getSwaps();
+        console.log('Fetched swaps:', swapsResponse.data);
         
         // Get all skills for reference
-        const skillsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/skills`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        const skillsResponse = await skillService.getSkills();
+        console.log('Fetched skills:', skillsResponse.data);
         
         // Get user's skills
-        const userSkillsResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/skills/me`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        const userSkillsResponse = await skillService.getUserSkills();
+        console.log('Fetched user skills:', userSkillsResponse.data);
         
-        // Get all users (in a real app, you might want to paginate this)
-        const usersResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/users`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }).catch(() => ({ data: [] })); // Fallback if endpoint doesn't exist
+        // First, set the data we know exists
+        setSwaps(Array.isArray(swapsResponse.data) ? swapsResponse.data : []);
+        setSkills(Array.isArray(skillsResponse.data) ? skillsResponse.data : []);
+        setUserSkills(Array.isArray(userSkillsResponse.data) ? userSkillsResponse.data : []);
         
-        setSwaps(swapsResponse.data);
-        setSkills(skillsResponse.data);
-        setUserSkills(userSkillsResponse.data);
-        setUsers(usersResponse.data || []);
+        // Then try to get users
+        try {
+          const usersResponse = await userService.getUsers();
+          console.log('Fetched users:', usersResponse.data);
+          setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : []);
+        } catch (userError) {
+          console.error("Error fetching users:", userError);
+          // If we can't get all users, we'll need the user info for the swaps
+          // Extract user info from swaps for display
+          const uniqueUserIds = new Set();
+          const extractedUsers = [];
+          
+          // Extract requester and receiver IDs from swaps
+          swapsResponse.data.forEach(swap => {
+            if (swap.requesterId && !uniqueUserIds.has(swap.requesterId)) {
+              uniqueUserIds.add(swap.requesterId);
+              // The name will be filled in later if possible
+              extractedUsers.push({ id: swap.requesterId, name: `User ${swap.requesterId.slice(0, 5)}` });
+            }
+            if (swap.receiverId && !uniqueUserIds.has(swap.receiverId)) {
+              uniqueUserIds.add(swap.receiverId);
+              extractedUsers.push({ id: swap.receiverId, name: `User ${swap.receiverId.slice(0, 5)}` });
+            }
+          });
+          
+          setUsers(extractedUsers);
+        }
+        
         setLoading(false);
       } catch (err) {
         setError('Failed to load data. Please try again later.');
         setLoading(false);
         console.error('Error fetching data:', err);
+        // Initialize with empty arrays on error
+        setSwaps([]);
+        setSkills([]);
+        setUserSkills([]);
+        setUsers([]);
       }
     };
     
@@ -89,18 +136,20 @@ const Swaps = () => {
     e.preventDefault();
     
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/swap`, 
-        newSwap,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      console.log("Creating swap with data:", newSwap);
+      
+      // Make sure all required fields are filled
+      if (!newSwap.receiverId || !newSwap.offeredSkillId || !newSwap.wantedSkillId) {
+        setError("All fields are required");
+        return;
+      }
+      
+      // Make the API call
+      const response = await swapService.createSwap(newSwap);
+      console.log("Swap created successfully:", response.data);
       
       // Add the new swap to the swaps list
-      setSwaps([...swaps, response.data]);
+      setSwaps(prevSwaps => [...prevSwaps, response.data]);
       
       // Reset the form
       setNewSwap({
@@ -109,24 +158,23 @@ const Swaps = () => {
         wantedSkillId: ''
       });
       
+      // Show success message
+      setError(null);
+      setSuccess("Swap request created successfully!");
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+      
     } catch (err) {
-      setError('Failed to create swap request. Please try again.');
       console.error('Error creating swap:', err);
+      setError(err.response?.data?.message || 'Failed to create swap request. Please try again.');
     }
   };
 
   // Handle updating swap status
   const handleUpdateSwapStatus = async (swapId, newStatus) => {
     try {
-      const response = await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/swap/${swapId}/status`,
-        { status: newStatus },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await swapService.updateSwapStatus(swapId, newStatus);
       
       // Update the swap in the list
       setSwaps(swaps.map(swap => 
@@ -140,20 +188,20 @@ const Swaps = () => {
   };
 
   // Filter swaps by those I've requested
-  const requestedSwaps = swaps.filter(swap => 
-    localStorage.getItem('userId') === swap.requesterId
-  );
+  const requestedSwaps = Array.isArray(swaps) ? swaps.filter(swap => 
+    getUserId() === swap.requesterId
+  ) : [];
 
   // Filter swaps by those I've received
-  const receivedSwaps = swaps.filter(swap => 
-    localStorage.getItem('userId') === swap.receiverId
-  );
+  const receivedSwaps = Array.isArray(swaps) ? swaps.filter(swap => 
+    getUserId() === swap.receiverId
+  ) : [];
 
   // Filter user's offered skills for the dropdown
-  const offeredSkills = userSkills.filter(skill => skill.type === 'offered');
+  const offeredSkills = Array.isArray(userSkills) ? userSkills.filter(skill => skill.type === 'offered') : [];
   
   // Filter user's wanted skills for the dropdown
-  const wantedSkills = userSkills.filter(skill => skill.type === 'wanted');
+  const wantedSkills = Array.isArray(userSkills) ? userSkills.filter(skill => skill.type === 'wanted') : [];
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Loading swaps...</div>;
@@ -166,6 +214,12 @@ const Swaps = () => {
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          {success}
         </div>
       )}
       

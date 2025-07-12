@@ -1,9 +1,7 @@
 import { Request, Response } from "express";
 import { db } from "../db/db";
-import { skills } from "../db/schema/index";
-import { eq } from "drizzle-orm";
-import { asyncWrapProviders } from "async_hooks";
-import { ref } from "process";
+import { skills, users } from "../db/schema/index";
+import { eq, and } from "drizzle-orm";
 
 // ✅ Create Skill
 export const createSkill = async (req: Request, res: Response) => {
@@ -98,6 +96,41 @@ export const getUserSkill = async (req: Request, res: Response) => {
     res.json(userSkills);
   } catch (err) {
     console.error("Get skills error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getUsersBySkill = async (req: Request, res: Response) => {
+  try {
+    const skillId = req.params.skillId;
+    const type = req.query.type as string | undefined; // Optional type filter
+
+    let whereCondition;
+    if (type && (type === 'offered' || type === 'wanted')) {
+      whereCondition = and(
+        eq(skills.id, skillId),
+        eq(skills.type, type)
+      );
+    } else {
+      whereCondition = eq(skills.id, skillId);
+    }
+
+    const query = db
+      .select({
+        userId: users.id,
+        userName: users.name,
+        skillId: skills.id,
+        skillName: skills.skillName,
+        skillType: skills.type
+      })
+      .from(skills)
+      .innerJoin(users, eq(skills.userId, users.id))
+      .where(whereCondition);
+
+    const skillUsers = await query;
+    res.json(skillUsers);
+  } catch (err) {
+    console.error("Get users by skill error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

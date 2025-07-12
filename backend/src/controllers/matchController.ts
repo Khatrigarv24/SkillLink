@@ -37,7 +37,7 @@ export const getSkillMatches = async (req: Request, res: Response) => {
           and(
             eq(skills.skillName, wanted.skillName),
             eq(skills.type, "offered"),
-            ne(skills.userId, userId), // exclude self
+            ne(skills.userId, userId),
           ),
         );
 
@@ -57,17 +57,21 @@ export const getSkillMatches = async (req: Request, res: Response) => {
 
           if (partnerWantsMySkill.length > 0) {
             matches.push({
+              id: `match-${matches.length + 1}`, // Add unique ID for frontend
               partnerId: partner.userId,
+              userName: "User Match", // This will be populated on frontend
               youOffer: offered.skillName,
               theyWant: offered.skillName,
               theyOffer: wanted.skillName,
               youWant: wanted.skillName,
+              matchType: "mutual",
             });
           }
         }
       }
     }
 
+    console.log("Sending matches:", { matches });
     res.json({ matches });
   } catch (err) {
     console.error("Get skill matches error:", err);
