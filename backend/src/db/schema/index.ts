@@ -18,6 +18,7 @@ export const swapStatusEnum = pgEnum("swap_status", [
   "rejected",
   "deleted",
 ]);
+export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
 
 // ✅ Users table
 export const users = pgTable("users", {
@@ -25,6 +26,7 @@ export const users = pgTable("users", {
   name: varchar("name", { length: 100 }).notNull(),
   email: varchar("email", { length: 100 }).notNull().unique(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  role: userRoleEnum("role").default("user").notNull(),
   location: varchar("location", { length: 100 }),
   profilePhotoUrl: varchar("profile_photo_url", { length: 255 }),
   availability: varchar("availability", { length: 50 }),
